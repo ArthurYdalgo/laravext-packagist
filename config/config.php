@@ -19,7 +19,10 @@ return [
     'router_is_case_sensitive' => env('LARAVEXT_ROUTER_IS_CASE_SENSITIVE', false),
 
     /**
-     * The driver to use for caching the routes.
+     * The driver to use for caching the routes, and also to cache data regarding URIs (such as conventions, root views, etc).
+     * 
+     * Do not use the 'array' driver, as it will not persist the data between requests, otherwise when caching the routes
+     * the conventions will not used.
      */
     'router_cache_driver' => env('LARAVEXT_ROUTER_CACHE_DRIVER', env('CACHE_DRIVER', 'file')),
 

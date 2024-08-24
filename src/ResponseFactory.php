@@ -35,23 +35,25 @@ class ResponseFactory
     public static function getUriCache($uri = null)
     {
         $uri = $uri ?? request()?->route()?->uri();
+        $router_cache_driver = config('laravext.router_cache_driver', 'file');
 
         if (!$uri) {
             return null;
         }
 
-        return Cache::store('array')->get("laravext-uri:{$uri}-cache");
+        return Cache::store($router_cache_driver)->get("laravext-uri:{$uri}-cache");
     }
 
     public static function clearUriCache($uri = null)
     {
         $uri = $uri ?? request()?->route()?->uri();
+        $router_cache_driver = config('laravext.router_cache_driver', 'file');
 
         if (!$uri) {
             return null;
         }
 
-        return Cache::store('array')->forget("laravext-uri:{$uri}-cache");
+        return Cache::store($router_cache_driver)->forget("laravext-uri:{$uri}-cache");
     }
 
     public function nexus($page = null, $props = [])
