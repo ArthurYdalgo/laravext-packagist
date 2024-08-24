@@ -179,6 +179,7 @@ class Router
     public static function laravextNexusRoutes(&$router, $directory, $uri, $root_view = null)
     {
         $router_route_name_is_enabled = config('laravext.router_route_naming_is_enabled', true);
+        $router_cache_driver = config('laravext.router_cache_driver', 'file');
 
         $page = $directory['conventions']['page'] ?? null;
 
@@ -203,7 +204,7 @@ class Router
                     $route_uri = '/';
                 }
 
-                Cache::store('array')->put(
+                Cache::store($router_cache_driver)->put(
                     "laravext-uri:{$route_uri}-cache",
                     compact('server_skeleton', 'middleware', 'layout', 'error', 'page', 'uri', 'name', 'root_view')
                 );
