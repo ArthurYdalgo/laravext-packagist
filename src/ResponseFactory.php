@@ -19,6 +19,8 @@ class ResponseFactory
     public $route_params;
     public $shared_props;
     public $route_name;
+    public $url;
+    public $path;
 
     // Page Conventions
     public $middleware, $layout, $error, $page, $server_skeleton;
@@ -30,6 +32,12 @@ class ResponseFactory
         $this->query_params = request()?->query();
         $this->route_params = request()?->route()?->parameters();
         $this->route_name = request()?->route()?->getName();
+        $this->url = request()?->url();
+        $this->path = request()?->path();
+
+        if (!str($this->path)->startsWith('/')) {
+            $this->path = "/{$this->path}";
+        }
     }
 
     public static function getUriCache($uri = null)
@@ -183,6 +191,8 @@ class ResponseFactory
             'route_params' => $this->route_params,
             'query_params' => $this->query_params,
             'route_name' => $this->route_name,
+            'url' => $this->url,
+            'path' => $this->path,
             'version' => Router::version(),
             'url_intended' => config('laravext.router_url_intended_is_enabled') ? Session::pull('url.intended') : null,
         ];
@@ -262,15 +272,11 @@ class ResponseFactory
             ], headers: $headers);
         }
 
-        $path = $request->path();
+        $path = $this->path;
         $query_params = $laravext_page_data['query_params'];
 
         if ($query_params) {
             $path .= '?' . http_build_query($query_params);
-        }
-
-        if (!str($path)->startsWith('/')) {
-            $path = "/{$path}";
         }
 
         // This is not needed if it's a visit with a render action
