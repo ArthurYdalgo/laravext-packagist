@@ -12,7 +12,7 @@
 
 # Laravext
 
-Welcome to the Laravext repo!
+Welcome to the Laravext Packagist repo!
 
 Here are some useful links:
 - [Documentation](https://laravext.dev)
