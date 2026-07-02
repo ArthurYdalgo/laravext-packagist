@@ -5,7 +5,7 @@ return [
     /**
      * The root view where the @nexus directive is at.
      */
-    'root_view' => env('LARAVEXT_ROOT_VIEW', 'sections.app'),
+    'root_view' => env('LARAVEXT_ROOT_VIEW', 'app'),
 
     /**
      * The directory where the nexus files are stored. This is used by the router to automagically
