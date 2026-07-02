@@ -76,7 +76,7 @@ class LaravextServiceProvider extends ServiceProvider
     protected function registerRouterMacro(): void
     {
         Router::macro('nexus', function ($uri = '{nexusSlug?}', $page = null, $root_view = null, ...$parameters) {
-            $custom_route_registration_method = config('laravext.route_registration_method', $parameters['route_registration_method'] ?? null);
+            $custom_route_registration_method = $parameters['route_registration_method'] ?? config('laravext.route_registration_method');
 
             $action = function () use ($uri, $page, $root_view, $parameters)  {
                 if(isset($parameters['merge_with_existing_route']) && !boolval($parameters['merge_with_existing_route'])){
