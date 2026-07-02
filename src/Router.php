@@ -176,7 +176,7 @@ class Router
      * @param array $directory
      * 
      */
-    public static function laravextNexusRoutes(&$router, $directory, $uri, $root_view = null)
+    public static function laravextNexusRoutes(&$router, $directory, $uri, $root_view = null, ...$parameters)
     {
         $router_route_name_is_enabled = config('laravext.router_route_naming_is_enabled', true);
         $router_cache_driver = config('laravext.router_cache_driver', 'file');
@@ -213,13 +213,13 @@ class Router
                     $route_uri,
                     $page,
                     $root_view,
-                    ...compact('middleware', 'layout', 'error', 'server_skeleton')
+                    ...array_merge($parameters, compact('server_skeleton', 'middleware', 'layout', 'error'))
                 )->name($name);
             }
         }
 
         foreach ($directory['children'] as $child_directory) {
-            self::laravextNexusRoutes($router, $child_directory, $uri, $root_view);
+            self::laravextNexusRoutes($router, $child_directory, $uri, $root_view, ...$parameters);
         }
     }
 
@@ -234,15 +234,15 @@ class Router
      * 
      * @return \Illuminate\Routing\Router
      */
-    public static function laravextRouteGroup(&$router, $uri, $nexus_directory, $route_group_attributes = [], $root_view = null)
+    public static function laravextRouteGroup(&$router, $uri, $nexus_directory, $route_group_attributes = [], $root_view = null, ...$parameters)
     {
         $router_cache_driver = config('laravext.router_cache_driver', 'file');
         $router_cache_is_enabled = config('laravext.router_cache_is_enabled', true);
 
         $nexus_directories = self::getNexusDirectories($nexus_directory, $router_cache_is_enabled, $router_cache_driver);
 
-        return $router->group($route_group_attributes, function () use ($uri, $router, $root_view, $nexus_directories) {
-            self::laravextNexusRoutes($router, $nexus_directories, $uri, $root_view);
+        return $router->group($route_group_attributes, function () use ($uri, $router, $root_view, $nexus_directories, $parameters) {
+            self::laravextNexusRoutes($router, $nexus_directories, $uri, $root_view, ...$parameters);
         });
     }
 

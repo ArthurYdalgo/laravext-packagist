@@ -7,7 +7,7 @@
 namespace Illuminate\Support\Facades {
 
     /**
-     * @method static self laravext($uri = null, $route_group_attributes = [], $root_view = null)
+     * @method static self laravext($uri = null, $route_group_attributes = [], $root_view = null, ...$parameters)
      * @method static self nexus($uri = '{nexusSlug?}', $page = null, $root_view = null, ...$parameters)
      */
     class Route

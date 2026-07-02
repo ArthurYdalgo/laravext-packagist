@@ -76,20 +76,28 @@ class LaravextServiceProvider extends ServiceProvider
     protected function registerRouterMacro(): void
     {
         Router::macro('nexus', function ($uri = '{nexusSlug?}', $page = null, $root_view = null, ...$parameters) {
-            return $this->match(['GET', 'HEAD'], $uri, function () use ($uri, $page, $root_view, $parameters)  {
+            $custom_route_registration_method = config('laravext.route_registration_method', $parameters['route_registration_method'] ?? null);
+
+            $action = function () use ($uri, $page, $root_view, $parameters)  {
                 if(isset($parameters['merge_with_existing_route']) && !boolval($parameters['merge_with_existing_route'])){
                     Laravext::clearUriCache($uri);
                 }
         
                 return nexus($page)->rootView($root_view)->render();
-            });
+            };
+
+            if(!$custom_route_registration_method){
+                return $this->match(['GET', 'HEAD'], $uri, $action);
+            }
+
+            return $this->{$custom_route_registration_method}($uri, $action);
         });
 
-        Router::macro('laravext', function ($uri = null, $route_group_attributes = [], $root_view = null) {
+        Router::macro('laravext', function ($uri = null, $route_group_attributes = [], $root_view = null, ...$parameters) {
             unset($route_group_attributes['prefix']);
             $nexus_directory = config('laravext.nexus_directory');
 
-            LaravextRouter::laravextRouteGroup($this, $uri, $nexus_directory, $route_group_attributes, $root_view);
+            LaravextRouter::laravextRouteGroup($this, $uri, $nexus_directory, $route_group_attributes, $root_view, ...$parameters);
         });
     }
 }
