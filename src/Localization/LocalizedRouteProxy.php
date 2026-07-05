@@ -6,17 +6,17 @@ use Illuminate\Support\Facades\Cache;
 
 class LocalizedRouteProxy
 {
-    protected $baseRoute;
-    protected $localizedRoutes;
+    protected $base_route;
+    protected $localized_routes;
     protected $localizer;
-    protected $cacheContent;
+    protected $cache_content;
 
-    public function __construct($baseRoute, $localizedRoutes, $localizer, $cacheContent = [])
+    public function __construct($base_route, $localized_routes, $localizer, $cache_content = [])
     {
-        $this->baseRoute = $baseRoute;
-        $this->localizedRoutes = $localizedRoutes;
+        $this->base_route = $base_route;
+        $this->localized_routes = $localized_routes;
         $this->localizer = $localizer;
-        $this->cacheContent = $cacheContent;
+        $this->cache_content = $cache_content;
     }
 
     /**
@@ -24,9 +24,9 @@ class LocalizedRouteProxy
      */
     public function cacheData($driver, $content)
     {
-        $this->updateCacheForRoute($this->baseRoute->uri(), $content, $driver);
+        $this->updateCacheForRoute($this->base_route->uri(), $content, $driver);
 
-        foreach ($this->localizedRoutes as $route) {
+        foreach ($this->localized_routes as $route) {
             $this->updateCacheForRoute($route->uri(), $content, $driver);
         }
 
@@ -38,18 +38,18 @@ class LocalizedRouteProxy
      */
     public function name($name)
     {
-        $this->baseRoute->name($name);
-        $this->updateCacheForRoute($this->baseRoute->uri(), ['name' => $name]);
+        $this->base_route->name($name);
+        $this->updateCacheForRoute($this->base_route->uri(), ['name' => $name]);
 
-        foreach ($this->localizedRoutes as $localeKey => $route) {
+        foreach ($this->localized_routes as $locale_key => $route) {
             // Strip out the '_redundant' suffix if it's the redundant default route
-            $locale = explode('_', $localeKey)[0];
+            $locale = explode('_', $locale_key)[0];
             
-            $localizedName = $this->localizer->generateRouteName($locale, $route->uri(), $name, $this->cacheContent);
+            $localized_name = $this->localizer->generateRouteName($locale, $route->uri(), $name, $this->cache_content);
             
-            if ($localizedName) {
-                $route->name($localizedName);
-                $this->updateCacheForRoute($route->uri(), ['name' => $localizedName]);
+            if ($localized_name) {
+                $route->name($localized_name);
+                $this->updateCacheForRoute($route->uri(), ['name' => $localized_name]);
             }
         }
 
@@ -61,21 +61,21 @@ class LocalizedRouteProxy
      */
     public function __call($method, $parameters)
     {
-        $this->baseRoute->{$method}(...$parameters);
+        $this->base_route->{$method}(...$parameters);
 
-        foreach ($this->localizedRoutes as $route) {
+        foreach ($this->localized_routes as $route) {
             $route->{$method}(...$parameters);
         }
 
         return $this;
     }
 
-    protected function updateCacheForRoute($uri, $mergeData, $driver = null)
+    protected function updateCacheForRoute($uri, $merge_data, $driver = null)
     {
         $driver = $driver ?? config('laravext.router_cache_driver', 'file');
-        $cacheKey = "laravext-uri:{$uri}-cache";
+        $cache_key = "laravext-uri:{$uri}-cache";
         
-        $existing = Cache::store($driver)->get($cacheKey) ?: [];
-        Cache::store($driver)->put($cacheKey, array_merge($existing, $mergeData));
+        $existing = Cache::store($driver)->get($cache_key) ?: [];
+        Cache::store($driver)->put($cache_key, array_merge($existing, $merge_data));
     }
 }

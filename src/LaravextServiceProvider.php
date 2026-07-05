@@ -78,38 +78,39 @@ class LaravextServiceProvider extends ServiceProvider
         Router::macro('nexus', function ($uri = '{nexusSlug?}', $action_or_page = null, $root_view = null, ...$parameters) {
             $custom_route_registration_method = $parameters['route_registration_method'] ?? config('laravext.route_registration_method');
 
-            // 1. Detect if it is a custom controller, closure, or array
+            // Detect if it is a custom controller, closure, or array
             $is_custom_action = is_callable($action_or_page) || is_array($action_or_page) || (is_string($action_or_page) && class_exists($action_or_page));
 
             $action = $is_custom_action ? $action_or_page : function () use ($uri, $action_or_page, $root_view, $parameters) {
-                if (isset($parameters['merge_with_existing_route']) && !boolval($parameters['merge_with_existing_route'])) {
+                if (isset($parameters['merge_with_existing_route']) && ! boolval($parameters['merge_with_existing_route'])) {
                     \Laravext\ResponseFactory::clearUriCache($uri);
                 }
+                
                 return nexus($action_or_page)->rootView($root_view)->render();
             };
 
             $method = $custom_route_registration_method ?: 'match';
             $args = $custom_route_registration_method ? [$uri, $action] : [['GET', 'HEAD'], $uri, $action];
 
-            // 2. Register the base route
+            // Register the base route
             $base_route = $this->{$method}(...$args);
 
-            // 3. Return a standard route if localization is disabled
-            if (!config('laravext.localization.enabled', false)) {
+            // Return a standard route if localization is disabled
+            if (! config('laravext.localization.enabled', false)) {
                 return $base_route;
             }
 
-            // 4. Register Localized Overrides
+            // Register localized overrides
             $locales = config('laravext.localization.locales', config('app.locales', [config('app.locale')]));
             $default_locale = config('laravext.localization.default_locale', config('app.locale', 'en'));
             $redundant_default = config('laravext.localization.redundant_default_route_name', false);
             $translation_file = config('laravext.localization.translation_file', 'routes');
             $add_prefix = config('laravext.localization.add_prefix_to_uri', false);
 
-            $localizerClass = config('laravext.localization.localizer', \Laravext\Localization\RouteLocalizer::class);
-            $localizer = app($localizerClass);
+            $localizer_class = config('laravext.localization.localizer', \Laravext\Localization\RouteLocalizer::class);
+            $localizer = app($localizer_class);
 
-            $localizedRoutes = [];
+            $localized_routes = [];
 
             foreach ($locales as $locale) {
                 $is_default = ($locale === $default_locale);
@@ -118,24 +119,22 @@ class LaravextServiceProvider extends ServiceProvider
                 $translated_uri = \Laravext\Router::translateUriSegments($uri, $locale, $translation_file);
 
                 if ($is_default && $redundant_default) {
-                    // Inline prefixing logic
                     $redundant_uri = $add_prefix ? "{$locale}/{$translated_uri}" : $translated_uri;
                     $redundant_uri = \Laravext\Router::trimSurroundingSlashes($redundant_uri);
 
                     $args_redundant = $custom_route_registration_method ? [$redundant_uri, $action] : [['GET', 'HEAD'], $redundant_uri, $action];
-                    $localizedRoutes[$locale . '_redundant'] = $this->{$method}(...$args_redundant);
-                } elseif (!$is_default) {
-                    // Inline prefixing logic
+                    $localized_routes[$locale . '_redundant'] = $this->{$method}(...$args_redundant);
+                } elseif (! $is_default) {
                     $localized_uri = $add_prefix ? "{$locale}/{$translated_uri}" : $translated_uri;
                     $localized_uri = \Laravext\Router::trimSurroundingSlashes($localized_uri);
 
                     $args_localized = $custom_route_registration_method ? [$localized_uri, $action] : [['GET', 'HEAD'], $localized_uri, $action];
-                    $localizedRoutes[$locale] = $this->{$method}(...$args_localized);
+                    $localized_routes[$locale] = $this->{$method}(...$args_localized);
                 }
             }
 
-            // 5. Wrap in the Proxy to handle chaining
-            return new \Laravext\Localization\LocalizedRouteProxy($base_route, $localizedRoutes, $localizer, $parameters);
+            // Wrap in the Proxy to handle chaining
+            return new \Laravext\Localization\LocalizedRouteProxy($base_route, $localized_routes, $localizer, $parameters);
         });
 
         Router::macro('laravext', function ($uri = null, $route_group_attributes = [], $root_view = null, ...$parameters) {

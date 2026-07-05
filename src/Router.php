@@ -15,25 +15,21 @@ class Router
     /**
      * This method parsed the directory, and recursively parsed the children directories. It will return a tree of the directories, containing
      * the name, path, relative path, conventions, whether it is a group, and its children.
-     * 
-     * When a directory is a group, the conventions will cascade down to children directories, and will only be overwriten if the child directory
+     * * When a directory is a group, the conventions will cascade down to children directories, and will only be overwriten if the child directory
      * has its own conventions, but will still be aplied to other children directories, unless another group that declares the same conventions
      * is found.
-     * 
-     * @see https://laravext.dev/docs/routing/conventions
-     * 
-     * @param string $directory_path
+     * * @see https://laravext.dev/docs/routing/conventions
+     * * @param string $directory_path
      * @param string $root
      * @param array $parent_conventions
-     * 
-     * @return array
+     * * @return array
      */
     public static function parseDirectory($directory_path, $root, $parent_conventions = [])
     {
         $root = self::trimEndingSlash(self::replaceReverseSlashes($root));
         $directory_path = self::trimEndingSlash(self::replaceReverseSlashes($directory_path));
 
-        if (!File::isDirectory($directory_path)) {
+        if (! File::isDirectory($directory_path)) {
             return [
                 'name' => null,
                 'path' => null,
@@ -81,14 +77,11 @@ class Router
     /**
      * This method parsed the directory to verify if there're any conventions. These conversion are based on the Next.js App Router conventions, with
      * the addition of a loading.html which will be used as the server_skeleton. This is used to render the server side skeleton of the page.
-     * 
-     * @see https://laravext.dev/docs/routing/conventions
+     * * @see https://laravext.dev/docs/routing/conventions
      * @see https://nextjs.org/docs/app/building-your-application/routing#file-conventions
-     * 
-     * @param string $directory_path
+     * * @param string $directory_path
      * @param string $root
-     * 
-     * @return array
+     * * @return array
      */
     public static function parseDirectoryConventions($directory_path, $root)
     {
@@ -127,18 +120,16 @@ class Router
      * This method will recursively parse the directories and their files, and return a tree of the directories.
      * These directories will contain the name, path, relative path, conventions, whether it is a group, and its children.
      * For efficiency, the result will be cached.
-     * 
-     * @param string $nexus_directory
+     * * @param string $nexus_directory
      * @param bool $cached
      * @param string $cache_driver
-     * 
-     * @return array
+     * * @return array
      */
     public static function getNexusDirectories($nexus_directory, $cached = true, $cache_driver = 'file')
     {
         $cache_key = self::generateRoutingTreeCacheKey($nexus_directory);
 
-        if (!$cached) {
+        if (! $cached) {
             Cache::store($cache_driver)->forget($cache_key);
         }
 
@@ -153,13 +144,13 @@ class Router
     public static function generateRouteSegments($relative_path, $router_is_case_sensitive = null)
     {
         $router_is_case_sensitive ??= config('laravext.router_is_case_sensitive', false);
-        return str($relative_path)->when(!$router_is_case_sensitive, function ($str) {
+        return str($relative_path)->when(! $router_is_case_sensitive, function ($str) {
             return $str->lower();
         })->explode('/')->filter(function ($segment) {
-            // We will filter out the segments that are just route groups.
-            return (!preg_match('/\([\w-]+\)$/', $segment) || preg_match('/\(\([\w-]+\)\)$/', $segment));
+            // Filter out the segments that are just route groups.
+            return (! preg_match('/\([\w-]+\)$/', $segment) || preg_match('/\(\([\w-]+\)\)$/', $segment));
         })->map(function ($segment) {
-            // In case the route group should also be a segment, we will remove the parenthesis.
+            // Remove parenthesis if the route group should also be a segment.
             if (preg_match('/\(\([\w-]+\)\)$/', $segment)) {
                 return str($segment)->replaceFirst("((", "")->replaceLast("))", "");
             }
@@ -171,8 +162,8 @@ class Router
     /**
      * Define the Nexus routes, and recursively define the children Nexus routes.
      * * @param \Illuminate\Routing\Router $router
-     * @param string $uri
      * @param array $directory
+     * @param string $uri
      */
     public static function laravextNexusRoutes(&$router, $directory, $uri, $root_view = null, ...$parameters)
     {
@@ -186,7 +177,7 @@ class Router
             $route_uri = $segments->implode('/');
             $base_uri = $uri ? self::trimStartingSlash($uri) : null;
 
-            if (!$base_uri || ($base_uri && str($route_uri)->startsWith($base_uri))) {
+            if (! $base_uri || ($base_uri && str($route_uri)->startsWith($base_uri))) {
                 $name = $router_route_name_is_enabled ? $segments->map(function ($segment) {
                     return str($segment)->remove(["{", "}", "?"]);
                 })->join('.') : null;
@@ -205,7 +196,7 @@ class Router
                     $route_uri = '/';
                 }
 
-                // 1. Separate the parameters so we don't overwrite the macro's base arguments
+                // Separate the parameters so we don't overwrite the macro's base arguments
                 $macro_parameters = array_merge($parameters, [
                     'server_skeleton' => $cache_content['server_skeleton'],
                     'middleware'      => $cache_content['middleware'],
@@ -213,8 +204,8 @@ class Router
                     'error'           => $cache_content['error'],
                 ]);
 
-                // 2. Pass the filtered parameters to the macro
-                $routeProxy = $router->nexus(
+                // Pass the filtered parameters to the macro
+                $route_proxy = $router->nexus(
                     $route_uri,
                     $page,
                     $root_view,
@@ -222,16 +213,16 @@ class Router
                 );
 
                 // Apply initial cache across all generated routes
-                if (method_exists($routeProxy, 'cacheData')) {
-                    $routeProxy->cacheData($router_cache_driver, $cache_content);
+                if (method_exists($route_proxy, 'cacheData')) {
+                    $route_proxy->cacheData($router_cache_driver, $cache_content);
                 } else {
                     $cache_content['uri'] = $route_uri;
-                    \Illuminate\Support\Facades\Cache::store($router_cache_driver)->put("laravext-uri:{$route_uri}-cache", $cache_content);
+                    Cache::store($router_cache_driver)->put("laravext-uri:{$route_uri}-cache", $cache_content);
                 }
 
-                // Apply route names (Proxy will dynamically cascade translated names)
+                // Apply route names
                 if ($name) {
-                    $routeProxy->name($name);
+                    $route_proxy->name($name);
                 }
             }
         }
@@ -286,14 +277,14 @@ class Router
         $segments = explode('/', $uri);
         $translated_segments = array_map(function ($segment) use ($locale, $translation_file) {
             // Do not attempt to translate route parameters
-            if (\Illuminate\Support\Str::startsWith($segment, '{') && \Illuminate\Support\Str::endsWith($segment, '}')) {
+            if (Str::startsWith($segment, '{') && Str::endsWith($segment, '}')) {
                 return $segment;
             }
 
             $translation_key = "{$translation_file}.{$segment}";
             $translated = trans($translation_key, [], $locale);
 
-            // If the translation matches the key, it means no translation was found. Fall back to original.
+            // Fallback to original segment if no translation matches
             return $translated === $translation_key ? $segment : $translated;
         }, $segments);
 
@@ -307,24 +298,22 @@ class Router
     public static function generateLocalizedRouteName($locale, $uri, $original_name, $cache_content)
     {
         // Fetch the class name from config, falling back to the default
-        $generatorClass = config('laravext.localization.route_localizer', \Laravext\Localization\RouteLocalizer::class);
+        $generator_class = config('laravext.localization.route_localizer', \Laravext\Localization\RouteLocalizer::class);
 
-        // Resolve it out of the container so developers can use dependency injection in their constructors if needed
-        $generator = app($generatorClass);
+        // Resolve it out of the container to allow for constructor dependency injection 
+        $generator = app($generator_class);
 
         return $generator->generateRouteName($locale, $uri, $original_name, $cache_content);
     }
 
     /**
      * Define a group of routes, containing Nexus routes.
-     * 
-     * @param \Illuminate\Routing\Router $router
+     * * @param \Illuminate\Routing\Router $router
      * @param string $uri
      * @param string $nexus_directory
      * @param array $route_group_attributes
      * @param string|null $root_view
-     * 
-     * @return \Illuminate\Routing\Router
+     * * @return \Illuminate\Routing\Router
      */
     public static function laravextRouteGroup(&$router, $uri, $nexus_directory, $route_group_attributes = [], $root_view = null, ...$parameters)
     {
@@ -342,10 +331,8 @@ class Router
 
     /**
      * Generate a cache key for the routing tree.
-     * 
-     * @param string $nexus_directory
-     * 
-     * @return string
+     * * @param string $nexus_directory
+     * * @return string
      */
     public static function generateRoutingTreeCacheKey($nexus_directory)
     {
@@ -358,8 +345,7 @@ class Router
 
     /**
      * Get the version of the application.
-     * 
-     * @return string|null
+     * * @return string|null
      */
     public static function version()
     {
@@ -384,8 +370,7 @@ class Router
 
     /**
      * Trim the ending slash of a path.
-     * 
-     * @param string $path
+     * * @param string $path
      */
     public static function trimEndingSlash($path)
     {
@@ -394,8 +379,7 @@ class Router
 
     /**
      * Trim the starting slash of a path.
-     * 
-     * @param string $path
+     * * @param string $path
      */
     public static function trimStartingSlash($path)
     {
@@ -409,8 +393,7 @@ class Router
 
     /**
      * Replace reverse slashes with forward slashes.
-     * 
-     * @param string $path
+     * * @param string $path
      */
     public static function replaceReverseSlashes($path)
     {
@@ -419,11 +402,9 @@ class Router
 
     /**
      * Generate a relative path from a directory path.
-     * 
-     * @param string $directory_path
+     * * @param string $directory_path
      * @param string $root
-     * 
-     * @return string
+     * * @return string
      */
     public static function generateRelativePath($directory_path, $root)
     {
@@ -433,10 +414,8 @@ class Router
 
     /**
      * Generate the convention patterns for the file conventions.
-     * 
-     * @param array $file_extensions
-     * 
-     * @return array
+     * * @param array $file_extensions
+     * * @return array
      */
     public static function generateFileConventionPatterns()
     {
