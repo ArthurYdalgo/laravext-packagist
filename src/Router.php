@@ -265,8 +265,7 @@ class Router
     }
 
     /**
-     * Translates URI segments based on Laravel's translation files.
-     * Ignores route parameters like {id}.
+     * Translates the URI based on an exact match from the language files.
      */
     public static function translateUriSegments($uri, $locale, $translation_file)
     {
@@ -274,21 +273,17 @@ class Router
             return $uri;
         }
 
-        $segments = explode('/', $uri);
-        $translated_segments = array_map(function ($segment) use ($locale, $translation_file) {
-            // Do not attempt to translate route parameters
-            if (Str::startsWith($segment, '{') && Str::endsWith($segment, '}')) {
-                return $segment;
-            }
+        // Try to match the exact full URI
+        $full_translation_key = "{$translation_file}.{$uri}";
+        $translated_full = trans($full_translation_key, [], $locale);
 
-            $translation_key = "{$translation_file}.{$segment}";
-            $translated = trans($translation_key, [], $locale);
+        // Return exact match if found
+        if ($translated_full !== $full_translation_key) {
+            return $translated_full;
+        }
 
-            // Fallback to original segment if no translation matches
-            return $translated === $translation_key ? $segment : $translated;
-        }, $segments);
-
-        return implode('/', $translated_segments);
+        // Return original to prevent unintended partial translations
+        return $uri;
     }
 
     /**
