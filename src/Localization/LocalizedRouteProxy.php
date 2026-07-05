@@ -41,10 +41,7 @@ class LocalizedRouteProxy
         $this->base_route->name($name);
         $this->updateCacheForRoute($this->base_route->uri(), ['name' => $name]);
 
-        foreach ($this->localized_routes as $locale_key => $route) {
-            // Strip out the '_redundant' suffix if it's the redundant default route
-            $locale = explode('_', $locale_key)[0];
-            
+        foreach ($this->localized_routes as $locale => $route) {
             $localized_name = $this->localizer->generateRouteName($locale, $route->uri(), $name, $this->cache_content);
             
             if ($localized_name) {

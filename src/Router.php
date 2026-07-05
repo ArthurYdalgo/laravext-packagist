@@ -13,16 +13,7 @@ class Router
     public static $convention_extensions = ['jsx', 'tsx', 'js', 'ts', 'vue'];
 
     /**
-     * This method parsed the directory, and recursively parsed the children directories. It will return a tree of the directories, containing
-     * the name, path, relative path, conventions, whether it is a group, and its children.
-     * * When a directory is a group, the conventions will cascade down to children directories, and will only be overwriten if the child directory
-     * has its own conventions, but will still be aplied to other children directories, unless another group that declares the same conventions
-     * is found.
-     * * @see https://laravext.dev/docs/routing/conventions
-     * * @param string $directory_path
-     * @param string $root
-     * @param array $parent_conventions
-     * * @return array
+     * Parses the directory and recursively parses the children directories to return a routing tree.
      */
     public static function parseDirectory($directory_path, $root, $parent_conventions = [])
     {
@@ -75,13 +66,7 @@ class Router
     }
 
     /**
-     * This method parsed the directory to verify if there're any conventions. These conversion are based on the Next.js App Router conventions, with
-     * the addition of a loading.html which will be used as the server_skeleton. This is used to render the server side skeleton of the page.
-     * * @see https://laravext.dev/docs/routing/conventions
-     * @see https://nextjs.org/docs/app/building-your-application/routing#file-conventions
-     * * @param string $directory_path
-     * @param string $root
-     * * @return array
+     * Parses a directory to verify and apply Next.js-style file conventions.
      */
     public static function parseDirectoryConventions($directory_path, $root)
     {
@@ -89,15 +74,12 @@ class Router
         $directory_path = self::replaceReverseSlashes($directory_path);
 
         $root = self::trimEndingSlash($root);
-
         $directory_path = self::trimEndingSlash($directory_path);
 
         $files = File::files($directory_path);
-
         $convention_patterns = self::generateFileConventionPatterns();
 
         $conventions = [];
-
         $relative_path = self::generateRelativePath($directory_path, $root);
 
         foreach ($files as $file) {
@@ -117,13 +99,7 @@ class Router
     }
 
     /**
-     * This method will recursively parse the directories and their files, and return a tree of the directories.
-     * These directories will contain the name, path, relative path, conventions, whether it is a group, and its children.
-     * For efficiency, the result will be cached.
-     * * @param string $nexus_directory
-     * @param bool $cached
-     * @param string $cache_driver
-     * * @return array
+     * Recursively parses directories and caches the resulting routing tree.
      */
     public static function getNexusDirectories($nexus_directory, $cached = true, $cache_driver = 'file')
     {
@@ -139,31 +115,49 @@ class Router
     }
 
     /**
-     * Generate route segments from a relative path.
+     * Generates route segments from a relative path, handling parenthesis groupings.
      */
     public static function generateRouteSegments($relative_path, $router_is_case_sensitive = null)
     {
         $router_is_case_sensitive ??= config('laravext.router_is_case_sensitive', false);
+        
         return str($relative_path)->when(! $router_is_case_sensitive, function ($str) {
             return $str->lower();
         })->explode('/')->filter(function ($segment) {
-            // Filter out the segments that are just route groups.
             return (! preg_match('/\([\w-]+\)$/', $segment) || preg_match('/\(\([\w-]+\)\)$/', $segment));
         })->map(function ($segment) {
-            // Remove parenthesis if the route group should also be a segment.
             if (preg_match('/\(\([\w-]+\)\)$/', $segment)) {
                 return str($segment)->replaceFirst("((", "")->replaceLast("))", "");
             }
-
             return $segment;
         });
     }
 
     /**
-     * Define the Nexus routes, and recursively define the children Nexus routes.
-     * * @param \Illuminate\Routing\Router $router
-     * @param array $directory
-     * @param string $uri
+     * Translates the URI based on an exact match from the language files.
+     * Returns null if no explicit translation is found.
+     */
+    public static function translateUriSegments($uri, $locale, $translation_file)
+    {
+        // Always allow the root URI to be localized without needing an explicit translation
+        if (empty($uri) || $uri === '/') {
+            return $uri;
+        }
+
+        $full_translation_key = "{$translation_file}.{$uri}";
+        $translated_full = trans($full_translation_key, [], $locale);
+
+        // If an exact match is found in the lang array, return it
+        if ($translated_full !== $full_translation_key) {
+            return $translated_full;
+        }
+
+        // Return null to signal that this route should NOT be localized for this language
+        return null;
+    }
+
+    /**
+     * Defines the Nexus routes, recursively defining any children Nexus routes.
      */
     public static function laravextNexusRoutes(&$router, $directory, $uri, $root_view = null, ...$parameters)
     {
@@ -196,7 +190,7 @@ class Router
                     $route_uri = '/';
                 }
 
-                // Separate the parameters so we don't overwrite the macro's base arguments
+                // Protect against named parameter overwrites in PHP 8+ unpacking
                 $macro_parameters = array_merge($parameters, [
                     'server_skeleton' => $cache_content['server_skeleton'],
                     'middleware'      => $cache_content['middleware'],
@@ -204,7 +198,7 @@ class Router
                     'error'           => $cache_content['error'],
                 ]);
 
-                // Pass the filtered parameters to the macro
+                // Route::nexus handles base, localizations, and returns the Proxy (or standard route)
                 $route_proxy = $router->nexus(
                     $route_uri,
                     $page,
@@ -220,7 +214,7 @@ class Router
                     Cache::store($router_cache_driver)->put("laravext-uri:{$route_uri}-cache", $cache_content);
                 }
 
-                // Apply route names
+                // Apply route names (Proxy will dynamically cascade translated names)
                 if ($name) {
                     $route_proxy->name($name);
                 }
@@ -233,82 +227,7 @@ class Router
     }
 
     /**
-     * Registers a single instance of a route and its cache.
-     */
-    protected static function registerSingleRoute(&$router, $route_uri, $name, $cache_content, $parameters)
-    {
-        $router_cache_driver = config('laravext.router_cache_driver', 'file');
-
-        if ($route_uri == '') {
-            $route_uri = '/';
-        }
-
-        $cache_content['uri'] = $route_uri;
-        $cache_content['name'] = $name;
-
-        Cache::store($router_cache_driver)->put(
-            "laravext-uri:{$route_uri}-cache",
-            $cache_content
-        );
-
-        $router->nexus(
-            $route_uri,
-            $cache_content['page'],
-            $cache_content['root_view'],
-            ...array_merge($parameters, [
-                'server_skeleton' => $cache_content['server_skeleton'],
-                'middleware'      => $cache_content['middleware'],
-                'layout'          => $cache_content['layout'],
-                'error'           => $cache_content['error'],
-            ])
-        )->name($name);
-    }
-
-    /**
-     * Translates the URI based on an exact match from the language files.
-     */
-    public static function translateUriSegments($uri, $locale, $translation_file)
-    {
-        if (empty($uri) || $uri === '/') {
-            return $uri;
-        }
-
-        // Try to match the exact full URI
-        $full_translation_key = "{$translation_file}.{$uri}";
-        $translated_full = trans($full_translation_key, [], $locale);
-
-        // Return exact match if found
-        if ($translated_full !== $full_translation_key) {
-            return $translated_full;
-        }
-
-        // Return original to prevent unintended partial translations
-        return $uri;
-    }
-
-    /**
-     * Generates a localized route name. Exposed publicly for easy overriding,
-     * but defaults to checking a configurable closure first.
-     */
-    public static function generateLocalizedRouteName($locale, $uri, $original_name, $cache_content)
-    {
-        // Fetch the class name from config, falling back to the default
-        $generator_class = config('laravext.localization.route_localizer', \Laravext\Localization\RouteLocalizer::class);
-
-        // Resolve it out of the container to allow for constructor dependency injection 
-        $generator = app($generator_class);
-
-        return $generator->generateRouteName($locale, $uri, $original_name, $cache_content);
-    }
-
-    /**
-     * Define a group of routes, containing Nexus routes.
-     * * @param \Illuminate\Routing\Router $router
-     * @param string $uri
-     * @param string $nexus_directory
-     * @param array $route_group_attributes
-     * @param string|null $root_view
-     * * @return \Illuminate\Routing\Router
+     * Defines a group of routes containing Nexus routes.
      */
     public static function laravextRouteGroup(&$router, $uri, $nexus_directory, $route_group_attributes = [], $root_view = null, ...$parameters)
     {
@@ -324,11 +243,6 @@ class Router
 
     // Helpers
 
-    /**
-     * Generate a cache key for the routing tree.
-     * * @param string $nexus_directory
-     * * @return string
-     */
     public static function generateRoutingTreeCacheKey($nexus_directory)
     {
         $version = self::version();
@@ -338,44 +252,29 @@ class Router
         })->toString();
     }
 
-    /**
-     * Get the version of the application.
-     * * @return string|null
-     */
     public static function version()
     {
         if (config('laravext.version')) {
             return config('laravext.version');
         }
-
         if (config('app.asset_url')) {
             return md5(config('app.asset_url'));
         }
-
         if (file_exists($manifest = public_path('mix-manifest.json'))) {
             return md5_file($manifest);
         }
-
         if (file_exists($manifest = public_path('build/manifest.json'))) {
             return md5_file($manifest);
         }
-
+        
         return null;
     }
 
-    /**
-     * Trim the ending slash of a path.
-     * * @param string $path
-     */
     public static function trimEndingSlash($path)
     {
         return Str::endsWith($path, '/') ? Str::replaceLast('/', '', $path) : $path;
     }
 
-    /**
-     * Trim the starting slash of a path.
-     * * @param string $path
-     */
     public static function trimStartingSlash($path)
     {
         return Str::startsWith($path, '/') ? Str::replaceFirst('/', '', $path) : $path;
@@ -386,32 +285,17 @@ class Router
         return self::trimStartingSlash(self::trimEndingSlash($path));
     }
 
-    /**
-     * Replace reverse slashes with forward slashes.
-     * * @param string $path
-     */
     public static function replaceReverseSlashes($path)
     {
         return Str::replace('\\', '/', $path);
     }
 
-    /**
-     * Generate a relative path from a directory path.
-     * * @param string $directory_path
-     * @param string $root
-     * * @return string
-     */
     public static function generateRelativePath($directory_path, $root)
     {
         $relative_path = str($directory_path)->replaceFirst($root, '')->toString();
-        return  str(self::trimStartingSlash($relative_path))->explode('/')->filter()->implode('/');
+        return str(self::trimStartingSlash($relative_path))->explode('/')->filter()->implode('/');
     }
 
-    /**
-     * Generate the convention patterns for the file conventions.
-     * * @param array $file_extensions
-     * * @return array
-     */
     public static function generateFileConventionPatterns()
     {
         $file_extensions = config('laravext.file_extensions', self::$convention_extensions);

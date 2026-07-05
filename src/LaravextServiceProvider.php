@@ -19,7 +19,7 @@ class LaravextServiceProvider extends ServiceProvider
     public function boot()
     {
         $this->registerConsoleCommands();
-
+        
         $this->publishes([
             __DIR__ . '/../config/config.php' => config_path('laravext.php'),
         ], 'laravext-config');
@@ -92,10 +92,10 @@ class LaravextServiceProvider extends ServiceProvider
             $method = $custom_route_registration_method ?: 'match';
             $args = $custom_route_registration_method ? [$uri, $action] : [['GET', 'HEAD'], $uri, $action];
 
-            // Register the base route
+            // Register the base route (this serves as the default locale's route)
             $base_route = $this->{$method}(...$args);
 
-            // Return a standard route if localization is disabled
+            // Return standard route if localization is disabled
             if (! config('laravext.localization.enabled', false)) {
                 return $base_route;
             }
@@ -103,31 +103,27 @@ class LaravextServiceProvider extends ServiceProvider
             // Register localized overrides
             $locales = config('laravext.localization.locales', config('app.locales', [config('app.locale')]));
             $default_locale = config('laravext.localization.default_locale', config('app.locale', 'en'));
-            $redundant_default = config('laravext.localization.redundant_default_route_name', false);
             $translation_file = config('laravext.localization.translation_file', 'routes');
             $add_prefix = config('laravext.localization.add_prefix_to_uri', false);
 
-            $localizer_class = config('laravext.localization.localizer', \Laravext\Localization\RouteLocalizer::class);
+            $localizer_class = config('laravext.localization.route_localizer', \Laravext\Localization\RouteLocalizer::class);
             $localizer = app($localizer_class);
 
             $localized_routes = [];
-
+            
             foreach ($locales as $locale) {
-                $is_default = ($locale === $default_locale);
-
-                // Call the static helper on the Router instead of the localizer
+                // The base route handles the default locale. We skip it here.
+                if ($locale === $default_locale) {
+                    continue;
+                }
+                
                 $translated_uri = \Laravext\Router::translateUriSegments($uri, $locale, $translation_file);
 
-                if ($is_default && $redundant_default) {
-                    $redundant_uri = $add_prefix ? "{$locale}/{$translated_uri}" : $translated_uri;
-                    $redundant_uri = \Laravext\Router::trimSurroundingSlashes($redundant_uri);
-
-                    $args_redundant = $custom_route_registration_method ? [$redundant_uri, $action] : [['GET', 'HEAD'], $redundant_uri, $action];
-                    $localized_routes[$locale . '_redundant'] = $this->{$method}(...$args_redundant);
-                } elseif (! $is_default) {
+                // Handle non-default locales ONLY IF explicitly translated
+                if ($translated_uri !== null) {
                     $localized_uri = $add_prefix ? "{$locale}/{$translated_uri}" : $translated_uri;
                     $localized_uri = \Laravext\Router::trimSurroundingSlashes($localized_uri);
-
+                    
                     $args_localized = $custom_route_registration_method ? [$localized_uri, $action] : [['GET', 'HEAD'], $localized_uri, $action];
                     $localized_routes[$locale] = $this->{$method}(...$args_localized);
                 }

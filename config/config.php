@@ -100,12 +100,6 @@ return [
         'add_prefix_to_uri' => true,
 
         /**
-         * Whether or not the router should generate a redundant localized route name for the 
-         * default locale (e.g., generating both 'users' and 'en.users' route names).
-         */
-        'redundant_default_route_name' => true,
-
-        /**
          * The name of the translation file group located in your lang directory that will 
          * be used to translate the URI segments.
          */

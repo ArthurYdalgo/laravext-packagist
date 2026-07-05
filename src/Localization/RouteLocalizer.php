@@ -2,9 +2,6 @@
 
 namespace Laravext\Localization;
 
-use Illuminate\Support\Str;
-use Laravext\Router;
-
 class RouteLocalizer
 {
     /**
