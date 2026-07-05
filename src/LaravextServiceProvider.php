@@ -75,18 +75,18 @@ class LaravextServiceProvider extends ServiceProvider
 
     protected function registerRouterMacro(): void
     {
-        Router::macro('nexus', function ($uri = '{nexusSlug?}', $action_or_page = null, $root_view = null, ...$parameters) {
+        Router::macro('nexus', function ($uri = '{nexusSlug?}', $page = null, $root_view = null, ...$parameters) {
             $custom_route_registration_method = $parameters['route_registration_method'] ?? config('laravext.route_registration_method');
 
             // Detect if it is a custom controller, closure, or array
-            $is_custom_action = is_callable($action_or_page) || is_array($action_or_page) || (is_string($action_or_page) && class_exists($action_or_page));
+            $is_custom_action = is_callable($page) || is_array($page) || (is_string($page) && class_exists($page));
 
-            $action = $is_custom_action ? $action_or_page : function () use ($uri, $action_or_page, $root_view, $parameters) {
+            $action = $is_custom_action ? $page : function () use ($uri, $page, $root_view, $parameters) {
                 if (isset($parameters['merge_with_existing_route']) && ! boolval($parameters['merge_with_existing_route'])) {
                     \Laravext\ResponseFactory::clearUriCache($uri);
                 }
                 
-                return nexus($action_or_page)->rootView($root_view)->render();
+                return nexus($page)->rootView($root_view)->render();
             };
 
             $method = $custom_route_registration_method ?: 'match';
