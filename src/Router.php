@@ -160,7 +160,7 @@ class Router
             return (!preg_match('/\([\w-]+\)$/', $segment) || preg_match('/\(\([\w-]+\)\)$/', $segment));
         })->map(function ($segment) {
             // In case the route group should also be a segment, we will remove the parenthesis.
-            if(preg_match('/\(\([\w-]+\)\)$/', $segment)) {
+            if (preg_match('/\(\([\w-]+\)\)$/', $segment)) {
                 return str($segment)->replaceFirst("((", "")->replaceLast("))", "");
             }
 
@@ -170,11 +170,9 @@ class Router
 
     /**
      * Define the Nexus routes, and recursively define the children Nexus routes.
-     * 
-     * @param \Illuminate\Routing\Router $router
+     * * @param \Illuminate\Routing\Router $router
      * @param string $uri
      * @param array $directory
-     * 
      */
     public static function laravextNexusRoutes(&$router, $directory, $uri, $root_view = null, ...$parameters)
     {
@@ -185,42 +183,136 @@ class Router
 
         if ($page) {
             $segments = self::generateRouteSegments($directory['relative_path']);
-
             $route_uri = $segments->implode('/');
+            $base_uri = $uri ? self::trimStartingSlash($uri) : null;
 
-            $uri = $uri ? self::trimStartingSlash($uri) : null;
-
-            if (!$uri || ($uri && str($route_uri)->startsWith($uri))) {
+            if (!$base_uri || ($base_uri && str($route_uri)->startsWith($base_uri))) {
                 $name = $router_route_name_is_enabled ? $segments->map(function ($segment) {
                     return str($segment)->remove(["{", "}", "?"]);
                 })->join('.') : null;
 
-                $server_skeleton = $directory['conventions']['server_skeleton'] ?? null;
-                $middleware = $directory['conventions']['middleware'] ?? null;
-                $layout = $directory['conventions']['layout'] ?? null;
-                $error = $directory['conventions']['error'] ?? null;
+                $cache_content = [
+                    'server_skeleton' => $directory['conventions']['server_skeleton'] ?? null,
+                    'middleware' => $directory['conventions']['middleware'] ?? null,
+                    'layout' => $directory['conventions']['layout'] ?? null,
+                    'error' => $directory['conventions']['error'] ?? null,
+                    'page' => $page,
+                    'uri' => $uri,
+                    'root_view' => $root_view
+                ];
 
                 if ($route_uri == '') {
                     $route_uri = '/';
                 }
 
-                Cache::store($router_cache_driver)->put(
-                    "laravext-uri:{$route_uri}-cache",
-                    compact('server_skeleton', 'middleware', 'layout', 'error', 'page', 'uri', 'name', 'root_view')
-                );
+                // 1. Separate the parameters so we don't overwrite the macro's base arguments
+                $macro_parameters = array_merge($parameters, [
+                    'server_skeleton' => $cache_content['server_skeleton'],
+                    'middleware'      => $cache_content['middleware'],
+                    'layout'          => $cache_content['layout'],
+                    'error'           => $cache_content['error'],
+                ]);
 
-                $router->nexus(
+                // 2. Pass the filtered parameters to the macro
+                $routeProxy = $router->nexus(
                     $route_uri,
                     $page,
                     $root_view,
-                    ...array_merge($parameters, compact('server_skeleton', 'middleware', 'layout', 'error'))
-                )->name($name);
+                    ...$macro_parameters
+                );
+
+                // Apply initial cache across all generated routes
+                if (method_exists($routeProxy, 'cacheData')) {
+                    $routeProxy->cacheData($router_cache_driver, $cache_content);
+                } else {
+                    $cache_content['uri'] = $route_uri;
+                    \Illuminate\Support\Facades\Cache::store($router_cache_driver)->put("laravext-uri:{$route_uri}-cache", $cache_content);
+                }
+
+                // Apply route names (Proxy will dynamically cascade translated names)
+                if ($name) {
+                    $routeProxy->name($name);
+                }
             }
         }
 
         foreach ($directory['children'] as $child_directory) {
             self::laravextNexusRoutes($router, $child_directory, $uri, $root_view, ...$parameters);
         }
+    }
+
+    /**
+     * Registers a single instance of a route and its cache.
+     */
+    protected static function registerSingleRoute(&$router, $route_uri, $name, $cache_content, $parameters)
+    {
+        $router_cache_driver = config('laravext.router_cache_driver', 'file');
+
+        if ($route_uri == '') {
+            $route_uri = '/';
+        }
+
+        $cache_content['uri'] = $route_uri;
+        $cache_content['name'] = $name;
+
+        Cache::store($router_cache_driver)->put(
+            "laravext-uri:{$route_uri}-cache",
+            $cache_content
+        );
+
+        $router->nexus(
+            $route_uri,
+            $cache_content['page'],
+            $cache_content['root_view'],
+            ...array_merge($parameters, [
+                'server_skeleton' => $cache_content['server_skeleton'],
+                'middleware'      => $cache_content['middleware'],
+                'layout'          => $cache_content['layout'],
+                'error'           => $cache_content['error'],
+            ])
+        )->name($name);
+    }
+
+    /**
+     * Translates URI segments based on Laravel's translation files.
+     * Ignores route parameters like {id}.
+     */
+    public static function translateUriSegments($uri, $locale, $translation_file)
+    {
+        if (empty($uri) || $uri === '/') {
+            return $uri;
+        }
+
+        $segments = explode('/', $uri);
+        $translated_segments = array_map(function ($segment) use ($locale, $translation_file) {
+            // Do not attempt to translate route parameters
+            if (\Illuminate\Support\Str::startsWith($segment, '{') && \Illuminate\Support\Str::endsWith($segment, '}')) {
+                return $segment;
+            }
+
+            $translation_key = "{$translation_file}.{$segment}";
+            $translated = trans($translation_key, [], $locale);
+
+            // If the translation matches the key, it means no translation was found. Fall back to original.
+            return $translated === $translation_key ? $segment : $translated;
+        }, $segments);
+
+        return implode('/', $translated_segments);
+    }
+
+    /**
+     * Generates a localized route name. Exposed publicly for easy overriding,
+     * but defaults to checking a configurable closure first.
+     */
+    public static function generateLocalizedRouteName($locale, $uri, $original_name, $cache_content)
+    {
+        // Fetch the class name from config, falling back to the default
+        $generatorClass = config('laravext.localization.route_localizer', \Laravext\Localization\RouteLocalizer::class);
+
+        // Resolve it out of the container so developers can use dependency injection in their constructors if needed
+        $generator = app($generatorClass);
+
+        return $generator->generateRouteName($locale, $uri, $original_name, $cache_content);
     }
 
     /**
