@@ -75,6 +75,49 @@ return [
      */
     'force_page_visit' => env('LARAVEXT_FORCE_PAGE_VISIT', false),
 
+    'localization' => [
+        /**
+         * Whether or not the localized routing feature is enabled.
+         */
+        'enabled' => false,
+
+        /**
+         * The available locales for the application. By default, it will attempt to use the 
+         * APP_LOCALES environment variable, falling back to English.
+         */
+        'locales' => env('APP_LOCALES') ? explode(',', env('APP_LOCALES')) : config('app.locales', ['en']),
+
+        /**
+         * The base or default locale of the application. This is used to determine the primary 
+         * routes and fallback behaviors.
+         */
+        'default_locale' => env('APP_LOCALE', 'en'),
+
+        /**
+         * Whether or not a language prefix should be added to the URI for localized routes 
+         * (e.g., generating /en/users instead of just /users).
+         */
+        'add_prefix_to_uri' => true,
+
+        /**
+         * Whether or not the router should generate a redundant localized route name for the 
+         * default locale (e.g., generating both 'users' and 'en.users' route names).
+         */
+        'redundant_default_route_name' => true,
+
+        /**
+         * The name of the translation file group located in your lang directory that will 
+         * be used to translate the URI segments.
+         */
+        'translation_file' => 'routes',
+
+        /**
+         * The single class responsible for all localized routing behavior. 
+         * Extend \Laravext\Localization\RouteLocalizer to completely customize names, URIs, and translations.
+         */
+        'route_localizer' => \Laravext\Localization\RouteLocalizer::class,
+    ],
+
     /**
      * This config is used to determine if the server should render the javascript or not.
      * 
