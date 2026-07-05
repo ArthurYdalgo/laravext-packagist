@@ -120,7 +120,7 @@ class Router
     public static function generateRouteSegments($relative_path, $router_is_case_sensitive = null)
     {
         $router_is_case_sensitive ??= config('laravext.router_is_case_sensitive', false);
-        
+
         return str($relative_path)->when(! $router_is_case_sensitive, function ($str) {
             return $str->lower();
         })->explode('/')->filter(function ($segment) {
@@ -139,12 +139,10 @@ class Router
      */
     public static function translateUriSegments($uri, $locale, $translation_file)
     {
-        // Always allow the root URI to be localized without needing an explicit translation
-        if (empty($uri) || $uri === '/') {
-            return $uri;
-        }
+        // Normalize empty URIs to '/' so they can be explicitly translated
+        $lookup_uri = empty($uri) ? '/' : $uri;
 
-        $full_translation_key = "{$translation_file}.{$uri}";
+        $full_translation_key = "{$translation_file}.{$lookup_uri}";
         $translated_full = trans($full_translation_key, [], $locale);
 
         // If an exact match is found in the lang array, return it
@@ -152,7 +150,7 @@ class Router
             return $translated_full;
         }
 
-        // Return null to signal that this route should NOT be localized for this language
+        // Return null to signal that this route should NOT be localized
         return null;
     }
 
@@ -266,7 +264,7 @@ class Router
         if (file_exists($manifest = public_path('build/manifest.json'))) {
             return md5_file($manifest);
         }
-        
+
         return null;
     }
 
