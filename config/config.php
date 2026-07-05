@@ -107,7 +107,8 @@ return [
 
         /**
          * The single class responsible for all localized routing behavior. 
-         * Extend \Laravext\Localization\RouteLocalizer to completely customize names, URIs, and translations.
+         * Extend \Laravext\Localization\RouteLocalizer to completely customize how localized route names
+         * are generated.
          */
         'route_localizer' => \Laravext\Localization\RouteLocalizer::class,
     ],
