@@ -19,7 +19,7 @@ class LaravextServiceProvider extends ServiceProvider
     public function boot()
     {
         $this->registerConsoleCommands();
-        
+
         $this->publishes([
             __DIR__ . '/../config/config.php' => config_path('laravext.php'),
         ], 'laravext-config');
@@ -85,7 +85,7 @@ class LaravextServiceProvider extends ServiceProvider
                 if (isset($parameters['merge_with_existing_route']) && ! boolval($parameters['merge_with_existing_route'])) {
                     \Laravext\ResponseFactory::clearUriCache($uri);
                 }
-                
+
                 return nexus($page)->rootView($root_view)->render();
             };
 
@@ -110,20 +110,20 @@ class LaravextServiceProvider extends ServiceProvider
             $localizer = app($localizer_class);
 
             $localized_routes = [];
-            
+
             foreach ($locales as $locale) {
                 // The base route handles the default locale. We skip it here.
                 if ($locale === $default_locale) {
                     continue;
                 }
-                
+
                 $translated_uri = \Laravext\Router::translateUriSegments($uri, $locale, $translation_file);
 
                 // Handle non-default locales ONLY IF explicitly translated
                 if ($translated_uri !== null) {
                     $localized_uri = $add_prefix ? "{$locale}/{$translated_uri}" : $translated_uri;
                     $localized_uri = \Laravext\Router::trimSurroundingSlashes($localized_uri);
-                    
+
                     $args_localized = $custom_route_registration_method ? [$localized_uri, $action] : [['GET', 'HEAD'], $localized_uri, $action];
                     $localized_routes[$locale] = $this->{$method}(...$args_localized);
                 }
