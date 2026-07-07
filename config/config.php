@@ -55,6 +55,13 @@ return [
     'strand_id_length' => 64,
 
     /**
+     * The class responsible for building the Nexus page response (props, shared props, SSR, etc).
+     * Extend \Laravext\ResponseFactory to customize how responses are built and rendered
+     * (e.g. overriding withUrlIntended()).
+     */
+    'response_factory' => \Laravext\ResponseFactory::class,
+
+    /**
      * By default, these are the file extensions that will be used to search for the nexus files. Change it to your liking.
      */
     'file_extensions' => ['jsx', 'tsx', 'js', 'ts', 'vue'],

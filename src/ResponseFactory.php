@@ -173,6 +173,15 @@ class ResponseFactory
         return $this;
     }
 
+    public function withUrlIntended()
+    {
+        if (! config('laravext.router_url_intended_is_enabled')) {
+            return null;
+        }
+
+        return Session::pull('url.intended');
+    }
+
     public function page_data()
     {
         $uri_cache = $this->getUriCache();
@@ -194,7 +203,7 @@ class ResponseFactory
             'url' => $this->url,
             'path' => $this->path,
             'version' => Router::version(),
-            'url_intended' => config('laravext.router_url_intended_is_enabled') ? Session::pull('url.intended') : null,
+            'url_intended' => $this->withUrlIntended(),
         ];
     }
 

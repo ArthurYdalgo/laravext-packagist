@@ -33,8 +33,23 @@ class LaravextServiceProvider extends ServiceProvider
         // Automatically apply the package configuration
         $this->mergeConfigFrom(__DIR__ . '/../config/config.php', 'laravext');
 
-        // Register the main class to use with the facade
-        $this->app->singleton(ResponseFactory::class);
+        // Register the main class to use with the facade.
+        // Bound against ResponseFactory::class so the Laravext facade and any
+        // `ResponseFactory::class` type-hints keep resolving to the configured
+        // implementation, even if it's swapped out via `laravext.response_factory`.
+        //
+        // NOTE: we use `$app->build()` here instead of `$app->make()`. Since this
+        // closure IS the resolver for the `ResponseFactory::class` binding, calling
+        // `$app->make(ResponseFactory::class)` from inside it (which is what happens
+        // when `response_factory` is left at its default) would re-enter this same
+        // closure and recurse forever. `build()` instantiates the class directly,
+        // bypassing the container's binding lookup, so it's safe even when the
+        // configured class is ResponseFactory::class itself.
+        $this->app->singleton(ResponseFactory::class, function ($app) {
+            $response_factory_class = config('laravext.response_factory', ResponseFactory::class);
+
+            return $app->build($response_factory_class);
+        });
 
         $this->registerBladeDirectives();
         $this->registerRequestMacro();
