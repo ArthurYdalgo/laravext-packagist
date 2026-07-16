@@ -139,7 +139,7 @@ return [
         // 'enabled' => 'except',
 
         /**
-         * The URIs that should not be SSR'd.
+         * The URIs that should/should not be SSR'd. This is only used if the enabled config is set to 'only' or 'except'.
          */
         'uris' => [
             'example/{uri}/*',
@@ -147,7 +147,7 @@ return [
         ],
 
         /**
-         * The URIs that should be SSR'd. This is only used if the enabled config is set to 'only'.
+         * The URIs that should/should not be SSR'd. This is only used if the enabled config is set to 'only' or 'except'.
          */
         'route_names' => [
             'example/{uri}/*',
